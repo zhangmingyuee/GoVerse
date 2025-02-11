@@ -78,17 +78,17 @@ func GetPostDetailHandler(c *gin.Context) {
 }
 
 // GetPostListHandler 获取全部帖子详情的处理函数,并分页展示
-func GetPostListHandler(c *gin.Context) {
-	offset, limit := getPageInfo(c)
-	// 获取全部帖子
-	ps, err := logic.GetPostList(offset, limit)
-	if err != nil {
-		zap.L().Error("logic.GetPostList failed", zap.Error(err))
-		ResponseError(c, CodeServerBusy)
-		return
-	}
-	ResponseSuccess(c, ps)
-}
+//func GetPostListHandler(c *gin.Context) {
+//	offset, limit := getPageInfo(c)
+//	// 获取全部帖子
+//	ps, err := logic.GetPostList(offset, limit)
+//	if err != nil {
+//		zap.L().Error("logic.GetPostList failed", zap.Error(err))
+//		ResponseError(c, CodeServerBusy)
+//		return
+//	}
+//	ResponseSuccess(c, ps)
+//}
 
 // GetPostListHandler2 获取全部帖子详情的处理函数的升级版
 // 根据前端传来的参数（创建时间/分数）动态地获取帖子列表

@@ -60,15 +60,17 @@ func Setup(mode string) *gin.Engine {
 		// 创建社区
 		v1.POST("/community", controllers.CreateCommunityHandler)
 
-		// 根据社区id获取社区
-		//v1.GET("/community/:id", controllers.CommunityDetailHandler)
+		// 根据社区id/name获取社区详情
 		v1.GET("/community/detail", controllers.CommunityDetailHandler)
+
+		// 获取该社区的全部帖子
+		//v1.GET("/community/:id/posts", controllers.GetCommPosts)
 
 		// 创建帖子
 		v1.POST("/post", controllers.CreatePostHandler)
 
 		// 获取全部帖子
-		v1.GET("/post", controllers.GetPostListHandler)
+		//v1.GET("/post", controllers.GetPostListHandler)
 
 		// 根据帖子id获取帖子
 		v1.GET("/post/:id", controllers.GetPostDetailHandler)

@@ -56,38 +56,39 @@ func GetPostDetail(pid int64) (p *models.ApiPostDetail, err error) {
 }
 
 // GetPostList 获得全部的帖子信息（ApiPostDetail）
-func GetPostList(offset, limit int64) (apips []*models.ApiPostDetail, err error) {
-	var ps []*models.Post
-	ps, err = mysql.GetPostList(offset, limit)
-	if err != nil {
-		zap.L().Error("mysql.GetPostList falied", zap.Error(err))
-		return
-	}
+//func GetPostList(offset, limit int64) (apips []*models.ApiPostDetail, err error) {
+//	var ps []*models.Post
+//	ps, err = mysql.GetPostList(offset, limit)
+//	if err != nil {
+//		zap.L().Error("mysql.GetPostList falied", zap.Error(err))
+//		return
+//	}
+//
+//	for _, post := range ps {
+//		// 查询作者信息
+//		user := new(models.UserSafe)
+//		if user, err = mysql.GetUserByID(post.AuthorID); err != nil {
+//			zap.L().Error("mysql.GetUserByID falied", zap.Error(err))
+//			return
+//		}
+//		// 查询社区信息
+//		commDetail := new(models.CommunityDetail)
+//		if commDetail, err = mysql.GetCommunityById(post.CommunityID); err != nil {
+//			zap.L().Error("mysql.GetCommunityByID falied", zap.Error(err))
+//			return nil, err
+//		}
+//		// 填充信息
+//		p := &models.ApiPostDetail{
+//			AuthorName:      user.Username,
+//			Post:            post,
+//			CommunityDetail: commDetail,
+//		}
+//		apips = append(apips, p)
+//	}
+//	return
+//}
 
-	for _, post := range ps {
-		// 查询作者信息
-		user := new(models.UserSafe)
-		if user, err = mysql.GetUserByID(post.AuthorID); err != nil {
-			zap.L().Error("mysql.GetUserByID falied", zap.Error(err))
-			return
-		}
-		// 查询社区信息
-		commDetail := new(models.CommunityDetail)
-		if commDetail, err = mysql.GetCommunityById(post.CommunityID); err != nil {
-			zap.L().Error("mysql.GetCommunityByID falied", zap.Error(err))
-			return nil, err
-		}
-		// 填充信息
-		p := &models.ApiPostDetail{
-			AuthorName:      user.Username,
-			Post:            post,
-			CommunityDetail: commDetail,
-		}
-		apips = append(apips, p)
-	}
-	return
-}
-
+// GetPostList2 获取帖子列表
 func GetPostList2(c *gin.Context, p *models.ParamPostList) (apips []*models.ApiPostDetail, err error) {
 	// 1. 去redis查询id列表
 	var ids []string
@@ -137,6 +138,7 @@ func GetPostList2(c *gin.Context, p *models.ParamPostList) (apips []*models.ApiP
 	return
 }
 
+// GetCommPostList 获取社区帖子列表
 func GetCommPostList(c *gin.Context, p *models.ParamPostList) (apips []*models.ApiPostDetail, err error) {
 	// 1. 按照社区去redis查询id列表
 	var ids []string
@@ -186,9 +188,10 @@ func GetCommPostList(c *gin.Context, p *models.ParamPostList) (apips []*models.A
 	return
 }
 
+// 查询帖子列表（按照score/time/commid查询）
 func GetPostListNew(c *gin.Context, p *models.ParamPostList) (apips []*models.ApiPostDetail, err error) {
 	if p.Community_id == 0 {
-		// 查询全部
+		// 不是按照社区id查询，而是查询全部社区的帖子
 		apips, err = GetPostList2(c, p)
 		if err != nil {
 			zap.L().Error("GetPostList2 falied", zap.Error(err))

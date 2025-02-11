@@ -13,6 +13,7 @@ import (
 
 // --------- 全部与社区相关的 -----------
 
+// GetCommunityHandler 获取所有社区的id和name
 func GetCommunityHandler(c *gin.Context) {
 	// 查询到所有的社区(community_id, community_name)并以列表的形式返回
 	data, err := logic.GetCommunity()
