@@ -1,0 +1,125 @@
+basePath: 这里写base path
+definitions:
+  controllers._ResponsePostList:
+    properties:
+      code:
+        description: 业务响应状态码
+        type: integer
+      data:
+        description: 数据
+        items:
+          $ref: '#/definitions/models.ApiPostDetail'
+        type: array
+      message:
+        description: 提示信息
+        type: string
+    type: object
+  models.ApiPostDetail:
+    properties:
+      author_name:
+        type: string
+      community_detail:
+        $ref: '#/definitions/models.CommunityDetail'
+      post_detail:
+        $ref: '#/definitions/models.Post'
+      votes:
+        type: integer
+    type: object
+  models.CommunityDetail:
+    properties:
+      create_time:
+        type: string
+      id:
+        type: integer
+      introduction:
+        type: string
+      name:
+        type: string
+    type: object
+  models.Post:
+    properties:
+      author_id:
+        example: "0"
+        type: string
+      community_id:
+        type: integer
+      content:
+        type: string
+      create_time:
+        type: string
+      id:
+        example: "0"
+        type: string
+      status:
+        type: integer
+      title:
+        type: string
+    required:
+    - community_id
+    - content
+    - title
+    type: object
+host: 这里写接口服务的host
+info:
+  contact:
+    email: support@swagger.io
+    name: 沧叶
+    url: http://www.swagger.io/support
+  description: 这是一个仿rabbit的新闻分享的小项目，目前完成了后端的开发
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: 第一个Go语言项目--Bluebell
+  version: "1.0"
+paths:
+  /post:
+    post:
+      consumes:
+      - application/json
+      description: 根据传来的json格式的帖子信息，创建一个新的帖子
+      parameters:
+      - description: Bearer 用户令牌
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - example: "0"
+        in: query
+        name: author_id
+        type: string
+      - in: query
+        name: community_id
+        required: true
+        type: integer
+      - in: query
+        name: content
+        required: true
+        type: string
+      - in: query
+        name: create_time
+        type: string
+      - example: "0"
+        in: query
+        name: id
+        type: string
+      - in: query
+        name: status
+        type: integer
+      - in: query
+        name: title
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers._ResponsePostList'
+      security:
+      - ApiKeyAuth: []
+      summary: 创建一个帖子
+      tags:
+      - 帖子
+swagger: "2.0"

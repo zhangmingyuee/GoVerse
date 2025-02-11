@@ -1,0 +1,41 @@
+app:
+  name: "web_app"
+  mode: "dev"
+  port: 8080
+  start_time: "2024-10-01"
+  machine_id: 1
+  version: "v0.0.1"
+
+auth:
+  jwt_expire: 8760
+
+log:
+  level: "debug"
+  filename: "web_app.log"
+  maxsize: 200
+  max_age: 30
+  max_backups: 7
+
+mysql:
+  host: "127.0.0.1"
+  port: 3306
+  user: "root"
+  password: "123456"
+  dbname: "bluebell"
+  max_open_conns: 200
+  max_idle_conns: 50
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 100
+
+postgres:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "123456"
+  dbname : "bluebell"
+  sslmode: "disable"
