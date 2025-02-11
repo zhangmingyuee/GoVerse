@@ -15,6 +15,7 @@ const (
 	CodeOTPExpired
 	CodeOTPInvalid
 	CodeModifyNil
+	CodeCommNotExist
 )
 
 var codeMsgMap = map[int]string{
@@ -30,6 +31,7 @@ var codeMsgMap = map[int]string{
 	CodeOTPExpired:      "验证码过期",
 	CodeOTPInvalid:      "验证码无效",
 	CodeModifyNil:       "不允许修改",
+	CodeCommNotExist:    "社区不存在",
 }
 
 func (code ResCode) Msg() string {

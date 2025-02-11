@@ -33,7 +33,7 @@ func Setup(mode string) *gin.Engine {
 	v1.POST("/gen-otp", controllers.GenerateOTPHandler)
 
 	// 注册登录认证中间件
-	v1.Use(middleware.JWTAuthMiddleware()) // JWTAuthMiddleware() 应用登录认证的中间件
+	//v1.Use(middleware.JWTAuthMiddleware()) // JWTAuthMiddleware() 应用登录认证的中间件
 
 	{
 		// 查询个人信息
@@ -61,7 +61,8 @@ func Setup(mode string) *gin.Engine {
 		v1.POST("/community", controllers.CreateCommunityHandler)
 
 		// 根据社区id获取社区
-		v1.GET("/community/:id", controllers.CommunityDetailHandler)
+		//v1.GET("/community/:id", controllers.CommunityDetailHandler)
+		v1.GET("/community/detail", controllers.CommunityDetailHandler)
 
 		// 创建帖子
 		v1.POST("/post", controllers.CreatePostHandler)

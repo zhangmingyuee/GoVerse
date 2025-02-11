@@ -3,7 +3,6 @@ package logic
 import (
 	"bluebell/dao/mysql"
 	"bluebell/models"
-	"fmt"
 	"go.uber.org/zap"
 )
 
@@ -21,10 +20,15 @@ func GetCommunityDetail(id int64) (*models.CommunityDetail, error) {
 
 // CreateCommunity 创建社区
 func CreateCommunity(comm *models.CommunityDetail) error {
-	fmt.Printf("id=%d, name=%s,intr=%s\n", comm.ID, comm.Name, comm.Introduction)
+	//fmt.Printf("id=%d, name=%s,intr=%s\n", comm.ID, comm.Name, comm.Introduction)
 	if err := mysql.CreateCommunity(comm); err != nil {
 		zap.L().Error("CreateCommunity Failed", zap.Error(err))
 		return err
 	}
 	return nil
+}
+
+// GetCommunityByNameDetail 根据社区name查询社区信息
+func GetCommunityByNameDetail(username string) (*models.CommunityDetail, error) {
+	return mysql.GetCommunityByName(username)
 }
