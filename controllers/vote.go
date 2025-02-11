@@ -10,6 +10,7 @@ import (
 
 // 也可以直接也到帖子里，这里为了看的清晰，单独加了一个vote
 
+// PostVoteController 用户投票控制
 func PostVoteController(c *gin.Context) {
 	p := new(models.ParamVoteData)
 	if err := c.ShouldBindJSON(p); err != nil {

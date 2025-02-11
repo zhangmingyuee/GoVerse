@@ -77,25 +77,12 @@ func GetPostDetailHandler(c *gin.Context) {
 	ResponseSuccess(c, p)
 }
 
-// GetPostListHandler 获取全部帖子详情的处理函数,并分页展示
-//func GetPostListHandler(c *gin.Context) {
-//	offset, limit := getPageInfo(c)
-//	// 获取全部帖子
-//	ps, err := logic.GetPostList(offset, limit)
-//	if err != nil {
-//		zap.L().Error("logic.GetPostList failed", zap.Error(err))
-//		ResponseError(c, CodeServerBusy)
-//		return
-//	}
-//	ResponseSuccess(c, ps)
-//}
-
 // GetPostListHandler2 获取全部帖子详情的处理函数的升级版
 // 根据前端传来的参数（创建时间/分数）动态地获取帖子列表
 // 1. 获取参数
 // 2. 去redis查询id列表
 // 3. 根据id去数据库查询帖子信息
-func GetPostListHandler2(c *gin.Context) {
+func GetPostListHandler(c *gin.Context) {
 	// GET请求参数（query string）: /api/v1/post2?page=1&size=10&order=time
 	// 初始化结构体时指定初始参数
 	p := &models.ParamPostList{
@@ -111,7 +98,7 @@ func GetPostListHandler2(c *gin.Context) {
 	}
 
 	// 获取全部帖子
-	ps, err := logic.GetPostListNew(c, p)
+	ps, err := logic.GetPostListByScore(c, p)
 	if err != nil {
 		zap.L().Error("logic.GetPostList failed", zap.Error(err))
 		ResponseError(c, CodeServerBusy)
@@ -119,30 +106,3 @@ func GetPostListHandler2(c *gin.Context) {
 	}
 	ResponseSuccess(c, ps)
 }
-
-//// 根据社区id获取帖子列表
-//func GetCommPostListHandler(c *gin.Context) {
-//	// 初始化结构体时指定初始参数
-//	p := &models.ParamCommPostList{
-//		ParamPostList: &models.ParamPostList{
-//			Offset: 1,
-//			Limit:  1,
-//			Order:  models.OrderTime,
-//		},
-//		Community_id: 1,
-//	}
-//	if err := c.ShouldBindQuery(p); err != nil {
-//		zap.L().Error("GetCommPostListHandler with invalid param", zap.Error(err))
-//		ResponseError(c, CodeInvalidParam)
-//		return
-//	}
-//
-//	// 获取全部帖子
-//	ps, err := logic.GetCommPostList(c, p)
-//	if err != nil {
-//		zap.L().Error("logic.GetPostList failed", zap.Error(err))
-//		ResponseError(c, CodeServerBusy)
-//		return
-//	}
-//	ResponseSuccess(c, ps)
-//}

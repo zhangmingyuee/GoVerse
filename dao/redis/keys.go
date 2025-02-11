@@ -7,8 +7,7 @@ const (
 	keyPrefix             = "bluebell:"
 	KeyPostTimeZSet       = "post:time"   // zset: 帖子及发帖时间
 	KeyPostScoreZSet      = "post:score"  // zset: 帖子及投票的分数
-	KeyPostVotedZSetPreix = "post:voted:" // zset: 记录用户及投票类型, 参数时帖子post_id
-	KeyCommunitySetPreix  = "community:"  // set:  保存每个分区下帖子的id
+	KeyPostVotedZSetPreix = "post:voted:" // zset: 记录用户及投票类型, 参数帖子post_id
 )
 
 // 给redis key加上前缀

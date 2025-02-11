@@ -33,7 +33,7 @@ func Setup(mode string) *gin.Engine {
 	v1.POST("/gen-otp", controllers.GenerateOTPHandler)
 
 	// 注册登录认证中间件
-	//v1.Use(middleware.JWTAuthMiddleware()) // JWTAuthMiddleware() 应用登录认证的中间件
+	v1.Use(middleware.JWTAuthMiddleware()) // JWTAuthMiddleware() 应用登录认证的中间件
 
 	{
 		// 查询个人信息
@@ -63,20 +63,14 @@ func Setup(mode string) *gin.Engine {
 		// 根据社区id/name获取社区详情
 		v1.GET("/community/detail", controllers.CommunityDetailHandler)
 
-		// 获取该社区的全部帖子
-		//v1.GET("/community/:id/posts", controllers.GetCommPosts)
-
 		// 创建帖子
 		v1.POST("/post", controllers.CreatePostHandler)
-
-		// 获取全部帖子
-		//v1.GET("/post", controllers.GetPostListHandler)
 
 		// 根据帖子id获取帖子
 		v1.GET("/post/:id", controllers.GetPostDetailHandler)
 
-		// 根据时间或分数或社区获取帖子列表
-		v1.GET("/postorder", controllers.GetPostListHandler2)
+		// 根据时间或分数或获取帖子列表(可以按照社区分区)
+		v1.GET("/post", controllers.GetPostListHandler)
 
 		// 投票
 		v1.POST("/vote", controllers.PostVoteController)

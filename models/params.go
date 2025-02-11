@@ -25,9 +25,9 @@ type ParamLogIn struct {
 
 // ParamPostList 查询帖子请求参数（按照某一顺序）
 type ParamPostList struct {
-	Offset       int64  `form:"offset"`
-	Limit        int64  `form:"limit"`
-	Order        string `form:"order"`
+	Offset       int64  `json:"offset" form:"offset"`
+	Limit        int64  `json:"limit" form:"limit"`
+	Order        string `json:"order" form:"order"`
 	Community_id int64  `json:"community_id" form:"community_id"`
 }
 

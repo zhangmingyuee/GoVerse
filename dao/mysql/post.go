@@ -5,6 +5,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 	"strings"
+	"time"
 )
 
 /*	一些代码小备注：
@@ -57,4 +58,55 @@ func GetPostsListByIds(ids []string) (postlist []*models.Post, err error) {
 
 	err = db.Select(&postlist, query, args...)
 	return
+}
+
+// 根据给定的id列表查询对应社区的数据
+func GetPostsListByIdsAndComm(comm_id int64, ids []string) (postlist []*models.Post, err error) {
+	sqlStr := `SELECT post_id, title, content, author_id, community_id, create_time
+				FROM post
+				WHERE post_id IN (?) AND community_id = ?
+				ORDER BY FIND_IN_SET(post_id, ?);`
+	query, args, err := sqlx.In(sqlStr, ids, comm_id, strings.Join(ids, ","))
+	if err != nil {
+		return nil, err
+	}
+	query = db.Rebind(query)
+
+	err = db.Select(&postlist, query, args...)
+	return
+}
+
+// 按照时间顺序查询帖子
+func GetPostIdsInTime(p *models.ParamPostList) (post []*models.Post, err error) {
+	post = make([]*models.Post, 0)
+	sqlStr := `SELECT post_id, title, content, author_id, community_id, create_time
+				FROM post
+				ORDER BY create_time DESC
+				LIMIT ?,?;`
+	err = db.Select(&post, sqlStr, (p.Offset-1)*p.Limit, p.Limit)
+	return
+}
+
+// 按照时间和社区查询帖子
+func GetPostIdsInCommTime(p *models.ParamPostList) (post []*models.Post, err error) {
+	post = make([]*models.Post, 0)
+	sqlStr := `SELECT post_id, title, content, author_id, community_id, create_time
+				FROM post
+				WHERE community_id = ? 
+				ORDER BY create_time DESC
+				LIMIT ?,?;`
+	err = db.Select(&post, sqlStr, p.Community_id, (p.Offset-1)*p.Limit, p.Limit)
+	return
+}
+
+// 查询数据库获得对应帖子的创建时间
+func GetPostCreateTime(postID int64) (ctimestamp int64, err error) {
+	var ct time.Time
+	sqlStr := `select create_time from post where post_id = ?`
+	err = db.Get(&ct, sqlStr, postID)
+	if err != nil {
+		return 0, err
+	}
+	ctimestamp = ct.Unix()
+	return ctimestamp, nil
 }

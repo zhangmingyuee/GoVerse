@@ -3,8 +3,10 @@ package logic
 import (
 	"bluebell/dao/redis"
 	"bluebell/models"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"math"
 	"strconv"
 )
 
@@ -31,10 +33,45 @@ import (
 		2. 到期之后删除那个 KeyPostVotedZSetPreix
 */
 
+// 计算 Reddit 热度
+func computeRedditHotScore(ups, downs, postTime int64) float64 {
+	score := math.Max(float64(ups-downs), 1)
+	order := math.Log10(score)
+	//seconds := float64(postTime - 1134028003) // Reddit 基准时间
+	seconds := float64(postTime - 1735689600) // bluebell发布的基准时间（2025-01-01）
+	return order + seconds/45000.0            // 约12.5小时热度加一
+}
+
 // VoteForPost 为帖子投票的函数
 func VoteForPost(c *gin.Context, userID int64, p *models.ParamVoteData) error {
 	zap.L().Debug("VoteForPost", zap.Int64("userID", userID), zap.Int64("postid", p.PostID), zap.Int8("direction", p.Direction))
 	uidStr := strconv.FormatInt(userID, 10)
 	pidStr := strconv.FormatInt(p.PostID, 10)
-	return redis.VoteForPost(c, uidStr, pidStr, float64(p.Direction))
+	// 更新用户为该帖子投票结果
+	if err := redis.VoteForPost(c, uidStr, pidStr, float64(p.Direction)); err != nil {
+		zap.L().Error("VoteForPost", zap.Error(err))
+		return err
+	}
+	// 更新热度 --> 得到赞成票、反对票以及发帖时间
+	approve, err := redis.GetPostVoteByID(c, strconv.FormatInt(p.PostID, 10))
+	if err != nil {
+		zap.L().Error("GetPostVoteByID", zap.Error(err))
+		return err
+	}
+	against, err := redis.GetPostVoteAgainstByID(c, strconv.FormatInt(p.PostID, 10))
+	if err != nil {
+		zap.L().Error("GetPostVoteAgainstData", zap.Error(err))
+		return err
+	}
+	createTimeStamp, err := GetPostCreateTimeCached(c, p.PostID)
+	fmt.Println("createTimeStamp:", createTimeStamp)
+	if err != nil {
+		zap.L().Error("GetPostCreateTimeCached", zap.Error(err))
+		return err
+	}
+	// 更新热度
+	score := computeRedditHotScore(approve, against, createTimeStamp)
+	fmt.Println("score:", score)
+	return redis.UpdateScore(c, strconv.FormatInt(p.PostID, 10), score)
+
 }

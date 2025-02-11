@@ -17,6 +17,7 @@ func SetOTP(c *gin.Context, userID int64, otp string) (err error) {
 	return
 }
 
+// GetOTP 从redis中拿到验证码
 func GetOTP(c *gin.Context, userID int64) (otp string, err error) {
 	key := otpGenerate + ":" + strconv.FormatInt(userID, 10)
 	return rdb.Get(c, key).Result()
