@@ -5,6 +5,7 @@ import (
 	"bluebell/dao/mysql"
 	"bluebell/dao/redis"
 	"bluebell/logger"
+	"bluebell/logic"
 	"bluebell/pkg/snowflake"
 	"bluebell/routes"
 	"bluebell/settings"
@@ -80,6 +81,9 @@ func main() {
 		zap.L().Error("init translator failed, err:%v\n", zap.Error(err))
 		return
 	}
+
+	logic.StartCronJob()
+
 	// 5.注册路由
 	r := routes.Setup(viper.GetString("app.mode"))
 	//r.Run("0.0.0.0:8080") // 允许任何人访问

@@ -3,6 +3,7 @@ package mysql
 import (
 	"bluebell/models"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"strings"
 	"time"
@@ -109,4 +110,46 @@ func GetPostCreateTime(postID int64) (ctimestamp int64, err error) {
 	}
 	ctimestamp = ct.Unix()
 	return ctimestamp, nil
+}
+
+// 开始MySQL事务，并将数据存入mysql数据库
+func BatchInsertPostHotScores(postUpdateScores []redis.Z) error {
+	// 开启事务
+	tx, err := db.Beginx()
+	if err != nil {
+		zap.L().Error("开启mysql事务失败", zap.Error(err))
+		return err
+	}
+
+	// 构造批量插入 SQL
+	stmt := "INSERT INTO post_hot_scores (post_id, hot_score, updated_at) VALUES "
+	values := []interface{}{}
+	placeholders := []string{}
+
+	for _, post := range postUpdateScores {
+		postID := post.Member.(string) // 获取帖子的 ID
+		hotScore := post.Score         // 获取热度
+		placeholders = append(placeholders, "(?, ?, NOW())")
+		values = append(values, postID, hotScore)
+	}
+
+	// 拼接 SQL 语句
+	stmt += strings.Join(placeholders, ",")
+	stmt += " ON DUPLICATE KEY UPDATE hot_score = VALUES(hot_score), updated_at = NOW();"
+
+	// 执行批量插入
+	_, err = tx.Exec(stmt, values...)
+	if err != nil {
+		zap.L().Error("批量插入MySQL失败", zap.Error(err))
+		tx.Rollback()
+		return err
+	}
+
+	// 提交事务
+	err = tx.Commit()
+	if err != nil {
+		zap.L().Error("提交MySQL事务失败", zap.Error(err))
+		return err
+	}
+	return nil
 }

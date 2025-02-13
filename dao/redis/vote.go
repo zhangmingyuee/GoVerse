@@ -2,9 +2,12 @@ package redis
 
 import (
 	"bluebell/models"
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"strconv"
+	"time"
 )
 
 //const (
@@ -127,4 +130,37 @@ func GetPostVoteAgainstData(c *gin.Context, ps []*models.Post) ([]int64, error) 
 func UpdateScore(c *gin.Context, postid string, score float64) error {
 	return rdb.ZAdd(c, getRedisKey(KeyPostScoreZSet), redis.Z{
 		Score: score, Member: postid}).Err()
+}
+
+// 获取上次同步的时间戳
+func GetLastSyncTime(c context.Context) (string, error) {
+	return rdb.Get(c, LastSyncTimeKey).Result()
+}
+
+// 设置上次同步的时间戳
+func SetLastSyncTime(c context.Context, lastSyncTime int64) error {
+	return rdb.Set(c, LastSyncTimeKey, strconv.FormatInt(lastSyncTime, 10), 0).Err()
+}
+
+// 获取最近 10 分钟更新过的帖子热度
+func GetScoreLimitTime(c context.Context, lastSyncTime, currentTime int64) ([]redis.Z, error) {
+	postUpdateScores, err := rdb.ZRangeByScoreWithScores(c, KeyPostUpdateTimeZSet, &redis.ZRangeBy{
+		Min:    strconv.FormatInt(lastSyncTime, 10),
+		Max:    strconv.FormatInt(currentTime, 10),
+		Offset: 0,
+		Count:  10000, // 限制每次最多同步 10000 条数据，防止负载过高
+	}).Result()
+	return postUpdateScores, err
+}
+
+// Redis 过期策略：定期清理 30 天前的热度数据
+func CleanOldRedisData() {
+	c := context.Background()
+	thresholdTime := time.Now().Unix() - 30*24*3600 // 30 天前的时间戳
+	_, err := rdb.ZRemRangeByScore(c, KeyPostUpdateTimeZSet, "-inf", strconv.FormatInt(thresholdTime, 10)).Result()
+	if err != nil {
+		zap.L().Error("清理 Redis 过期数据失败", zap.Error(err))
+	} else {
+		zap.L().Error("清理 Redis 过期数据完成")
+	}
 }

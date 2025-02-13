@@ -1,13 +1,16 @@
 package logic
 
 import (
+	"bluebell/dao/mysql"
 	"bluebell/dao/redis"
 	"bluebell/models"
+	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"math"
 	"strconv"
+	"time"
 )
 
 // 投票功能
@@ -64,7 +67,7 @@ func VoteForPost(c *gin.Context, userID int64, p *models.ParamVoteData) error {
 		return err
 	}
 	createTimeStamp, err := GetPostCreateTimeCached(c, p.PostID)
-	fmt.Println("createTimeStamp:", createTimeStamp)
+	//fmt.Println("createTimeStamp:", createTimeStamp)
 	if err != nil {
 		zap.L().Error("GetPostCreateTimeCached", zap.Error(err))
 		return err
@@ -74,4 +77,63 @@ func VoteForPost(c *gin.Context, userID int64, p *models.ParamVoteData) error {
 	fmt.Println("score:", score)
 	return redis.UpdateScore(c, strconv.FormatInt(p.PostID, 10), score)
 
+}
+
+// 获取上次同步的时间戳
+func getLastSyncTime(c context.Context) (int64, error) {
+	lastSyncTimeStr, err := redis.GetLastSyncTime(c)
+	if err != nil {
+		zap.L().Error("GetLastSyncTime failed", zap.Error(err))
+		return time.Now().Unix() - 600, err // 默认同步 10 分钟内的数据
+	}
+	lastSyncTime, err := strconv.ParseInt(lastSyncTimeStr, 10, 64)
+	if err != nil {
+		zap.L().Error("strconv.ParseInt(lastSyncTimeStr) failed", zap.Error(err))
+		return time.Now().Unix() - 600, err
+	}
+	return lastSyncTime, err
+
+}
+
+// 设置新的 last_sync_time
+func setLastSyncTime(c context.Context, timestamp int64) error {
+	if err := redis.SetLastSyncTime(c, timestamp); err != nil {
+		zap.L().Error("redis.SetLastSyncTime failed", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// 增量同步 Redis 热度数据到 MySQL
+func syncHotScoresToMySQL() {
+	fmt.Println("增量同步开始:", time.Now())
+	c := context.Background()
+	// 获取上次同步的时间
+	lastSyncTime, err := getLastSyncTime(c)
+	currentTime := time.Now().Unix()
+	postUpdateScores, err := redis.GetScoreLimitTime(c, lastSyncTime, currentTime)
+	if err != nil {
+		zap.L().Error("redis.GetScoreLimitTime failed", zap.Error(err))
+		return
+	}
+
+	if len(postUpdateScores) == 0 {
+		zap.L().Info("没有需要同步的数据")
+		setLastSyncTime(c, currentTime)
+		return
+	}
+
+	// 开始MySQL事务，并将数据存入mysql数据库
+	if err := mysql.BatchInsertPostHotScores(postUpdateScores); err != nil {
+		zap.L().Error("BatchInsertPostHotScores failed", zap.Error(err))
+	}
+
+	// 更新 last_sync_time
+	err = setLastSyncTime(c, currentTime)
+	if err != nil {
+		zap.L().Error("setLastSyncTime failed", zap.Error(err))
+		return
+	}
+	zap.L().Info("同步数据完成", zap.Int("updateNum", len(postUpdateScores)))
+	return
 }
