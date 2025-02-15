@@ -3,6 +3,7 @@ package redis
 import (
 	"bluebell/models"
 	"context"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -132,21 +133,27 @@ func UpdateScore(c *gin.Context, postid string, score float64) error {
 		Score: score, Member: postid}).Err()
 }
 
+// UpdateVoteTime 更新帖子投票的时间
+func UpdateVoteTime(c *gin.Context, postid string, time float64) error {
+	return rdb.ZAdd(c, getRedisKey(KeyPostUpdateTimeZSet), redis.Z{
+		Score: time, Member: postid}).Err()
+}
+
 // 获取上次同步的时间戳
-func GetLastSyncTime(c context.Context) (string, error) {
-	return rdb.Get(c, LastSyncTimeKey).Result()
+func GetLastSyncTime(c context.Context, syncKey string) (string, error) {
+	return rdb.Get(c, syncKey).Result()
 }
 
 // 设置上次同步的时间戳
-func SetLastSyncTime(c context.Context, lastSyncTime int64) error {
-	return rdb.Set(c, LastSyncTimeKey, strconv.FormatInt(lastSyncTime, 10), 0).Err()
+func SetLastSyncTime(c context.Context, syncKey string, lastSyncTime int64) error {
+	return rdb.Set(c, syncKey, strconv.FormatInt(lastSyncTime, 10), 0).Err()
 }
 
-// 获取最近 10 分钟更新过的帖子热度
-func GetScoreLimitTime(c context.Context, lastSyncTime, currentTime int64) ([]redis.Z, error) {
-	postUpdateScores, err := rdb.ZRangeByScoreWithScores(c, KeyPostUpdateTimeZSet, &redis.ZRangeBy{
-		Min:    strconv.FormatInt(lastSyncTime, 10),
-		Max:    strconv.FormatInt(currentTime, 10),
+// 获取最近 10 分钟点赞更新过的帖子
+func GetTimeAndScore(c context.Context, lastSyncTime, currentTime int64) ([]redis.Z, error) {
+	postUpdateScores, err := rdb.ZRangeByScoreWithScores(c, getRedisKey(KeyPostUpdateTimeZSet), &redis.ZRangeBy{
+		Min:    fmt.Sprintf("%f", float64(lastSyncTime)),
+		Max:    fmt.Sprintf("%f", float64(currentTime)),
 		Offset: 0,
 		Count:  10000, // 限制每次最多同步 10000 条数据，防止负载过高
 	}).Result()
@@ -157,10 +164,91 @@ func GetScoreLimitTime(c context.Context, lastSyncTime, currentTime int64) ([]re
 func CleanOldRedisData() {
 	c := context.Background()
 	thresholdTime := time.Now().Unix() - 30*24*3600 // 30 天前的时间戳
-	_, err := rdb.ZRemRangeByScore(c, KeyPostUpdateTimeZSet, "-inf", strconv.FormatInt(thresholdTime, 10)).Result()
+	_, err := rdb.ZRemRangeByScore(c, getRedisKey(KeyPostUpdateTimeZSet), "-inf", strconv.FormatInt(thresholdTime, 10)).Result()
 	if err != nil {
 		zap.L().Error("清理 Redis 过期数据失败", zap.Error(err))
 	} else {
 		zap.L().Error("清理 Redis 过期数据完成")
 	}
+}
+
+// 得到传入的各个帖子的点赞数
+func GetLikesByIds(c context.Context, postUpdateScores []redis.Z) []redis.Z {
+	result := []redis.Z{}
+
+	for _, item := range postUpdateScores {
+		post_id, ok := item.Member.(string)
+		if !ok {
+			zap.L().Warn("更新不完整", zap.Any("item", item))
+			continue
+		}
+		key := getRedisKey(KeyPostVotedZSetPreix + post_id)
+		// 统计 score=1 的总数量
+		countOne, err := rdb.ZCount(c, key, "1", "1").Result()
+		if err != nil {
+			zap.L().Warn("更新不完整", zap.Any("item", item))
+			continue
+		}
+		// 将该 ID 加入结果，score 设为 score=1 的总数量
+		result = append(result, redis.Z{
+			Member: post_id,
+			Score:  float64(countOne),
+		})
+	}
+
+	return result
+}
+
+// 得到传入的各个帖子的热度
+func GetHotsByIds(c context.Context, postUpdateScores []redis.Z) []redis.Z {
+	result := []redis.Z{}
+
+	for _, item := range postUpdateScores {
+		post_id, ok := item.Member.(string)
+		if !ok {
+			zap.L().Warn("更新不完整", zap.Any("item", item))
+			continue
+		}
+		key := getRedisKey(KeyPostScoreZSet)
+		// 统计post_id的热度
+		hot, err := rdb.ZScore(c, key, post_id).Result()
+		if err != nil {
+			zap.L().Warn("更新不完整", zap.Any("item", item))
+			continue
+		}
+		// 将该 ID 加入结果，score 设为 hot
+		result = append(result, redis.Z{
+			Member: post_id,
+			Score:  hot,
+		})
+	}
+
+	return result
+}
+
+// 得到传入的各个帖子的点赞数
+func GetDisLikesByIds(c context.Context, postUpdateScores []redis.Z) []redis.Z {
+	result := []redis.Z{}
+
+	for _, item := range postUpdateScores {
+		post_id, ok := item.Member.(string)
+		if !ok {
+			zap.L().Warn("更新不完整", zap.Any("item", item))
+			continue
+		}
+		key := getRedisKey(KeyPostVotedZSetPreix + post_id)
+		// 统计 score=1 的总数量
+		countOne, err := rdb.ZCount(c, key, "-1", "-1").Result()
+		if err != nil {
+			zap.L().Warn("更新不完整", zap.Any("item", item))
+			continue
+		}
+		// 将该 ID 加入结果，score 设为 score=1 的总数量
+		result = append(result, redis.Z{
+			Member: post_id,
+			Score:  float64(countOne),
+		})
+	}
+
+	return result
 }

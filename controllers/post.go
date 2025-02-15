@@ -77,7 +77,7 @@ func GetPostDetailHandler(c *gin.Context) {
 	ResponseSuccess(c, p)
 }
 
-// GetPostListHandler2 获取全部帖子详情的处理函数的升级版
+// GetPostListHandler 获取全部帖子详情的处理函数的升级版
 // 根据前端传来的参数（创建时间/分数）动态地获取帖子列表
 // 1. 获取参数
 // 2. 去redis查询id列表

@@ -165,7 +165,7 @@ func GetPostCreateTimeCached(c *gin.Context, pid int64) (int64, error) {
 	createtimeFloat, err := redis.GetPostCreateTime(c, pid)
 	var ctimestamp int64
 	if err != nil {
-		zap.L().Error("redis.GetPostCreateTimeCache falied", zap.Error(err))
+		zap.L().Warn("redis.GetPostCreateTimeCache falied", zap.Error(err))
 
 		// Redis 没有缓存，从 MySQL 查询
 		ctimestamp, err = mysql.GetPostCreateTime(pid)

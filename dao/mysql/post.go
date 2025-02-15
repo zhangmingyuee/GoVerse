@@ -153,3 +153,91 @@ func BatchInsertPostHotScores(postUpdateScores []redis.Z) error {
 	}
 	return nil
 }
+
+// 开始MySQL事务，并将更新的点赞数据存入mysql数据库
+func BatchInsertLikes(postUpdateScores []redis.Z) error {
+	// 开启事务
+	tx, err := db.Beginx()
+	if err != nil {
+		zap.L().Error("开启mysql事务失败", zap.Error(err))
+		return err
+	}
+
+	// 构造批量插入 SQL
+	// 1️⃣ 预编译 SQL 语句
+	stmt, err := tx.Preparex("UPDATE post SET likes = ? WHERE post_id = ?")
+	if err != nil {
+		zap.L().Error("SQL预编译失败", zap.Error(err))
+		tx.Rollback() // 事务回滚
+		return err
+	}
+	defer stmt.Close()
+
+	// 2️⃣ 批量执行更新
+	for _, post := range postUpdateScores {
+		postID, ok := post.Member.(string) // Redis ZSET Member 可能是 string
+		if !ok {
+			zap.L().Warn("跳过无效的postID", zap.Any("post", post))
+			continue
+		}
+
+		_, err := stmt.Exec(post.Score, postID)
+		if err != nil {
+			zap.L().Error("更新帖子点赞数失败", zap.String("postID", postID), zap.Error(err))
+			tx.Rollback() // 事务回滚
+			return err
+		}
+	}
+
+	// 提交事务
+	err = tx.Commit()
+	if err != nil {
+		zap.L().Error("提交MySQL事务失败", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// 开始MySQL事务，并将更新的点赞数据存入mysql数据库
+func BatchInsertDisLikes(postUpdateScores []redis.Z) error {
+	// 开启事务
+	tx, err := db.Beginx()
+	if err != nil {
+		zap.L().Error("开启mysql事务失败", zap.Error(err))
+		return err
+	}
+
+	// 构造批量插入 SQL
+	// 1️⃣ 预编译 SQL 语句
+	stmt, err := tx.Preparex("UPDATE post SET dislikes = ? WHERE post_id = ?")
+	if err != nil {
+		zap.L().Error("SQL预编译失败", zap.Error(err))
+		tx.Rollback() // 事务回滚
+		return err
+	}
+	defer stmt.Close()
+
+	// 2️⃣ 批量执行更新
+	for _, post := range postUpdateScores {
+		postID, ok := post.Member.(string) // Redis ZSET Member 可能是 string
+		if !ok {
+			zap.L().Warn("跳过无效的postID", zap.Any("post", post))
+			continue
+		}
+
+		_, err := stmt.Exec(post.Score, postID)
+		if err != nil {
+			zap.L().Error("更新帖子点踩数失败", zap.String("postID", postID), zap.Error(err))
+			tx.Rollback() // 事务回滚
+			return err
+		}
+	}
+
+	// 提交事务
+	err = tx.Commit()
+	if err != nil {
+		zap.L().Error("提交MySQL事务失败", zap.Error(err))
+		return err
+	}
+	return nil
+}
