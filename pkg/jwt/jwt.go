@@ -34,7 +34,7 @@ func GenToken(userid int64, username string) (string, error) {
 			Issuer:    "bluebell",                                                                                     // 签发人
 		},
 	}
-	// 使用指定的签名方法创建签名对象
+	// 使用 jwt.NewWithClaims 创建 JWT 令牌，指定 签名算法 为 HS256（HMAC-SHA256），并携带 claims
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	// 使用指定的secret签名并获得完整的编码后的字符串token
 	return token.SignedString(CustomSecret)

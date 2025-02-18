@@ -36,6 +36,9 @@ func Setup(mode string) *gin.Engine {
 	v1.Use(middleware.JWTAuthMiddleware()) // JWTAuthMiddleware() 应用登录认证的中间件
 
 	{
+		// 注销
+		v1.POST("/logout", controllers.LogOutHandler)
+
 		// 查询个人信息
 		v1.GET("/user", controllers.GetUserInfoHandler)
 
@@ -75,8 +78,23 @@ func Setup(mode string) *gin.Engine {
 		// 投票
 		v1.POST("/vote", controllers.PostVoteController)
 
-		// 注销
-		v1.POST("/logout", controllers.LogOutHandler)
+		// 创建评论
+		v1.POST("/comment", controllers.CreateCommentConntroller)
+
+		// 查看顶级评论
+		v1.GET("/comment/:post_id", controllers.GetCommentConntroller)
+
+		// 查看评论的子评论
+		v1.GET("/comment/child/:parent_id", controllers.GetChildCommentsController)
+
+		// 删除评论
+		v1.DELETE("/comment", controllers.DeleteCommentController)
+
+		// 置顶评论路由，例如 POST /comment/pin/:comment_id
+		v1.POST("/comment/pin/:comment_id", controllers.PinCommentController)
+
+		// 取消置顶评论路由，例如 POST /comment/pin/:comment_id
+		v1.DELETE("/comment/pin/:comment_id", controllers.UnpinCommentController)
 
 	}
 

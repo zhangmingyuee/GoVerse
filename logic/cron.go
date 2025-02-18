@@ -9,7 +9,7 @@ import (
 // 启动定时任务
 func StartCronJob() {
 	c := cron.New()
-	_, err := c.AddFunc("@every 1m", SyncHotsDLikesToMySQL) // 每 10 分钟同步增量热度数据
+	_, err := c.AddFunc("@every 600m", SyncHotsDLikesToMySQL) // 每 10 分钟同步增量热度数据
 	if err != nil {
 		zap.L().Error("更新热度定时任务创建失败", zap.Error(err))
 	}
