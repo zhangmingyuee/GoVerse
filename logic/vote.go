@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	rd "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 	"math"
 	"strconv"
 	"time"
@@ -35,11 +36,38 @@ func VoteForPost(c *gin.Context, userID int64, p *models.ParamVoteData) error {
 	zap.L().Debug("VoteForPost", zap.Int64("userID", userID), zap.Int64("postid", p.PostID), zap.Int8("direction", p.Direction))
 	uidStr := strconv.FormatInt(userID, 10)
 	pidStr := strconv.FormatInt(p.PostID, 10)
+
 	// 更新用户为该帖子投票结果
 	if err := redis.VoteForPost(c, uidStr, pidStr, float64(p.Direction)); err != nil {
 		zap.L().Error("VoteForPost", zap.Error(err))
 		return err
 	}
+	// 更新用户和帖子行为表
+	// 更新帖子用户行为信息
+	//var behavior *models.UserPostBehavior
+	behavior, err := mysql.CheckBehavior(userID, p.PostID)
+	if err == gorm.ErrRecordNotFound {
+		// 没有找到记录, 创建记录
+		zap.L().Info("不存在该用户-帖子行为", zap.Int64("postID", p.PostID), zap.Int64("userID", userID))
+		if err := mysql.CreateBehavior(userID, p.PostID, mysql.BehaviorLike); err != nil {
+			zap.L().Error("mysql.CreateBehavior failed", zap.Error(err))
+			return err
+		}
+		return nil // 返回 nil 表示没有记录
+
+	} else if err != nil {
+		zap.L().Error("mysql.CheckBehavior failed", zap.Error(err))
+		return err
+	}
+
+	// 行为存在，查看是否需要更新行为
+	if behavior.Like == 0 {
+		if err := mysql.UpdateBehavior(userID, p.PostID, mysql.BehaviorLike); err != nil {
+			zap.L().Error("mysql.UpdateBehavior failed", zap.Error(err))
+			return err
+		}
+	}
+
 	// 更新热度 --> 得到赞成票、反对票以及发帖时间
 	approve, err := redis.GetPostVoteByID(c, strconv.FormatInt(p.PostID, 10))
 	if err != nil {
@@ -57,7 +85,7 @@ func VoteForPost(c *gin.Context, userID int64, p *models.ParamVoteData) error {
 		zap.L().Error("GetPostCreateTimeCached", zap.Error(err))
 		return err
 	}
-	// 更新热度
+	// 计算热度
 	score := computeRedditHotScore(approve, against, createTimeStamp)
 	//fmt.Println("score:", score)
 	err = redis.UpdateScore(c, strconv.FormatInt(p.PostID, 10), score)
@@ -175,77 +203,3 @@ func syncDislikes(c context.Context, postUpdateScores []rd.Z) error {
 	}
 	return nil
 }
-
-//// 增量同步 Redis 点赞数量数据到 MySQL
-//func syncLikesToMySQL() {
-//	fmt.Println("点赞数量增量同步开始:", time.Now())
-//	c := context.Background()
-//	// 获取上次同步的时间
-//	lastSyncTime, err := getLastSyncTime(c, redis.LastSyncTimeHotDLikesKey)
-//	currentTime := time.Now().Unix()
-//	postUpdateScores, err := redis.GetTimeAndScore(c, lastSyncTime, currentTime)
-//	if err != nil {
-//		zap.L().Error("redis.GetScoreLimitTime failed", zap.Error(err))
-//		return
-//	}
-//
-//	if len(postUpdateScores) == 0 {
-//		zap.L().Info("没有需要同步的点赞数据", zap.Int64("lastSyncTime", lastSyncTime), zap.Int64("currentTime", currentTime))
-//		setLastSyncTime(c, redis.LastSyncTimeHotDLikesKey, currentTime)
-//		return
-//	}
-//
-//	// 根据postUpdateScores中的post_id从redis中获取点赞数
-//	idlikes := redis.GetLikesByIds(c, postUpdateScores)
-//
-//	// 开始MySQL事务，并将数据存入mysql数据库
-//	if err := mysql.BatchInsertLikes(idlikes); err != nil {
-//		zap.L().Error("BatchInsertPostHotScores failed", zap.Error(err))
-//	}
-//
-//	// 更新 last_sync_time
-//	err = setLastSyncTime(c, redis.LastSyncTimeLikesKey, currentTime)
-//	if err != nil {
-//		zap.L().Error("setLastSyncTime failed", zap.Error(err))
-//		return
-//	}
-//	zap.L().Info("同步数据完成", zap.Int("updateNum", len(idlikes)))
-//	return
-//}
-//
-//// 增量同步 Redis 点赞数量数据到 MySQL
-//func syncDisLikesToMySQL() {
-//	fmt.Println("点赞数量增量同步开始:", time.Now())
-//	c := context.Background()
-//	// 获取上次同步的时间
-//	lastSyncTime, err := getLastSyncTime(c, redis.LastSyncTimeDisLikesKey)
-//	currentTime := time.Now().Unix()
-//	postUpdateScores, err := redis.GetTimeAndScore(c, lastSyncTime, currentTime)
-//	if err != nil {
-//		zap.L().Error("redis.GetScoreLimitTime failed", zap.Error(err))
-//		return
-//	}
-//
-//	if len(postUpdateScores) == 0 {
-//		zap.L().Info("没有需要同步的点赞数据", zap.Int64("lastSyncTime", lastSyncTime), zap.Int64("currentTime", currentTime))
-//		setLastSyncTime(c, redis.LastSyncTimeDisLikesKey, currentTime)
-//		return
-//	}
-//
-//	// 根据postUpdateScores中的post_id从redis中获取点赞数
-//	iddislikes := redis.GetDisLikesByIds(c, postUpdateScores)
-//
-//	// 开始MySQL事务，并将数据存入mysql数据库
-//	if err := mysql.BatchInsertDisLikes(iddislikes); err != nil {
-//		zap.L().Error("BatchInsertPostHotScores failed", zap.Error(err))
-//	}
-//
-//	// 更新 last_sync_time
-//	err = setLastSyncTime(c, redis.LastSyncTimeDisLikesKey, currentTime)
-//	if err != nil {
-//		zap.L().Error("setLastSyncTime failed", zap.Error(err))
-//		return
-//	}
-//	zap.L().Info("同步数据完成", zap.Int("updateNum", len(iddislikes)))
-//	return
-//}

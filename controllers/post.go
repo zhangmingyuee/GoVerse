@@ -3,6 +3,7 @@ package controllers
 import (
 	"bluebell/logic"
 	"bluebell/models"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
@@ -65,9 +66,17 @@ func GetPostDetailHandler(c *gin.Context) {
 		return
 	}
 
-	// 2. 根据id取得帖子的数据
+	// 2. 获取用户id
+	var uid int64
+	if uid, err = getCurrentUserID(c); err != nil {
+		zap.L().Error("Get user id failed", zap.Error(err))
+		ResponseError(c, CodeNeedLogin)
+		return
+	}
+
+	// 3. 根据id取得帖子的数据
 	var p *models.ApiPostDetail
-	if p, err = logic.GetPostDetail(pid); err != nil {
+	if p, err = logic.GetPostDetail(uid, pid); err != nil {
 		zap.L().Error("logic.GetPostDetail(pid) failed", zap.Error(err))
 		ResponseError(c, CodeServerBusy)
 		return
@@ -105,4 +114,50 @@ func GetPostListHandler(c *gin.Context) {
 		return
 	}
 	ResponseSuccess(c, ps)
+}
+
+// UploadImageController 上传图片
+func UploadImageController(c *gin.Context) {
+	// 1. 获取参数
+	image := new(models.ParamImage)
+	if err := c.ShouldBindJSON(image); err != nil {
+		zap.L().Error("Upload image controller with invalid param", zap.Error(err))
+		ResponseError(c, CodeInvalidParam)
+		return
+	}
+	// 2. 获取当前用户
+	userID, err := getCurrentUserID(c)
+	if err != nil {
+		zap.L().Error("Get user id failed", zap.Error(err))
+		ResponseError(c, CodeNeedLogin)
+		return
+	}
+	// 处理逻辑
+	if err := logic.UploadImage(userID, image); err != nil {
+		zap.L().Error("Upload image controller failed", zap.Error(err))
+		ResponseError(c, CodeServerBusy)
+		return
+	}
+	ResponseSuccess(c, nil)
+}
+
+// RecommendController 帖子推荐系统
+func RecommendController(c *gin.Context) {
+	// 获取用户id
+	userID, err := getCurrentUserID(c)
+	fmt.Println(userID)
+	if err != nil {
+		zap.L().Error("Get user id failed", zap.Error(err))
+		ResponseError(c, CodeNeedLogin)
+		return
+	}
+	// 调用推荐算法获取推荐结果
+	posts, err := logic.RecommendArticles(userID)
+	if err != nil {
+		zap.L().Error("logic.RecommendArticles failed", zap.Error(err))
+		ResponseError(c, CodeServerBusy)
+		return
+	}
+	ResponseSuccess(c, posts)
+
 }

@@ -63,3 +63,14 @@ type ParamComment struct {
 	UserID     int64  `json:"user_id,string" db:"user_id" form:"user_id"`                           // 用户ID，必填
 	Content    string `json:"content" db:"content" form:"content" binding:"required"`               // 评论内容，必填
 }
+
+// 定义用于上传图片请求的结构体
+type ParamImage struct {
+	PostID   int64  `json:"post_id,string"` // 文章 ID，关联图片
+	ImageURL string `json:"image_url"`      // 图片的 URL 地址
+}
+
+// TableName 方法用于指定 GORM 使用的表名
+func (ParamImage) TableName() string {
+	return "images" // 确保使用 "images" 表
+}

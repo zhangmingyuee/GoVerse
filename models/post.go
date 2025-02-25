@@ -1,8 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
-// 内存对齐的概念
+// Post 帖子的结构体
 type Post struct {
 	ID          int64     `json:"id,string" db:"post_id"`
 	AuthorID    int64     `json:"author_id,string" db:"author_id"`
@@ -13,6 +15,11 @@ type Post struct {
 	CreateTime  time.Time `json:"create_time" db:"create_time"`
 	Likes       int64     `json:"likes,string" db:"likes"`
 	DisLikes    int64     `json:"dislikes,string" db:"d"`
+}
+
+// TableName 方法用于指定 GORM 使用的表名
+func (Post) TableName() string {
+	return "post" // 确保使用 "images" 表
 }
 
 type ApiPostDetail struct {

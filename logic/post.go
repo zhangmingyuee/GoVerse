@@ -5,9 +5,13 @@ import (
 	"bluebell/dao/redis"
 	"bluebell/models"
 	"bluebell/pkg/snowflake"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
+
+var ErrNotPostAuthor = errors.New("not the post author")
 
 // CreatePost 创建一个帖子
 func CreatePost(c *gin.Context, p *models.Post) error {
@@ -23,7 +27,8 @@ func CreatePost(c *gin.Context, p *models.Post) error {
 }
 
 // GetPostDetail 根据id获得帖子信息（ApiPostDetail）
-func GetPostDetail(pid int64) (p *models.ApiPostDetail, err error) {
+func GetPostDetail(uid, pid int64) (p *models.ApiPostDetail, err error) {
+
 	// 查询并组合需要的数据
 	// 查询帖子信息
 	post := new(models.Post)
@@ -51,41 +56,36 @@ func GetPostDetail(pid int64) (p *models.ApiPostDetail, err error) {
 		Post:            post,
 		CommunityDetail: commDetail,
 	}
+
+	// 更新用户行为
+	// 更新帖子用户行为信息
+	// 更新帖子用户行为信息
+	var behavior *models.UserPostBehavior
+	behavior, err = mysql.CheckBehavior(uid, pid)
+	if err == gorm.ErrRecordNotFound {
+		// 没有找到记录, 创建记录
+		zap.L().Info("不存在该用户-帖子行为", zap.Int64("postID", pid), zap.Int64("userID", uid))
+		if err := mysql.CreateBehavior(uid, pid, mysql.BehaviorBrowser); err != nil {
+			zap.L().Error("mysql.CreateBehavior failed", zap.Error(err))
+			return nil, err
+		}
+		return nil, nil // 返回 nil 表示没有记录
+
+	} else if err != nil {
+		zap.L().Error("mysql.CheckBehavior failed", zap.Error(err))
+		return nil, err
+	}
+
+	// 行为存在，查看是否需要更新行为
+	if behavior.Browse == 0 {
+		if err := mysql.UpdateBehavior(uid, pid, mysql.BehaviorComment); err != nil {
+			zap.L().Error("mysql.UpdateBehavior failed", zap.Error(err))
+			return nil, err
+		}
+	}
+
 	return
 }
-
-// GetPostList 获得全部的帖子信息（ApiPostDetail）
-//func GetPostList(offset, limit int64) (apips []*models.ApiPostDetail, err error) {
-//	var ps []*models.Post
-//	ps, err = mysql.GetPostList(offset, limit)
-//	if err != nil {
-//		zap.L().Error("mysql.GetPostList falied", zap.Error(err))
-//		return
-//	}
-//
-//	for _, post := range ps {
-//		// 查询作者信息
-//		user := new(models.UserSafe)
-//		if user, err = mysql.GetUserByID(post.AuthorID); err != nil {
-//			zap.L().Error("mysql.GetUserByID falied", zap.Error(err))
-//			return
-//		}
-//		// 查询社区信息
-//		commDetail := new(models.CommunityDetail)
-//		if commDetail, err = mysql.GetCommunityById(post.CommunityID); err != nil {
-//			zap.L().Error("mysql.GetCommunityByID falied", zap.Error(err))
-//			return nil, err
-//		}
-//		// 填充信息
-//		p := &models.ApiPostDetail{
-//			AuthorName:      user.Username,
-//			Post:            post,
-//			CommunityDetail: commDetail,
-//		}
-//		apips = append(apips, p)
-//	}
-//	return
-//}
 
 // 查询帖子列表（按照score/time/commid查询）
 func GetPostListByScore(c *gin.Context, p *models.ParamPostList) (apips []*models.ApiPostDetail, err error) {
@@ -186,4 +186,23 @@ func GetPostCreateTimeCached(c *gin.Context, pid int64) (int64, error) {
 		}
 	}
 	return ctimestamp, nil
+}
+
+// UploadImage 上传图片
+func UploadImage(userID int64, image *models.ParamImage) error {
+	// 判断是否是当前用户的帖子
+	selectID, err := mysql.GetPostAuthor(image.PostID)
+	if err != nil {
+		zap.L().Error("mysql.GetPostAuthor falied", zap.Error(err))
+		return err
+	}
+	if selectID != userID {
+		zap.L().Error("非帖子作者", zap.Error(err))
+		return ErrNotPostAuthor
+	}
+	if err := mysql.SaveImageToDB(image); err != nil {
+		zap.L().Error("mysql.UploadImage falied", zap.Error(err))
+		return err
+	}
+	return nil
 }

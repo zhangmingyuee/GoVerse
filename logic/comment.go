@@ -5,6 +5,7 @@ import (
 	"bluebell/models"
 	"bluebell/pkg/snowflake"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 // CreateComment 创建评论逻辑
@@ -19,7 +20,31 @@ func CreateComment(postID, parentID, userID int64, content string) (int64, error
 		return 0, err
 	}
 
-	// 可以在此添加额外的业务逻辑，比如计算评论热度等
+	// 更新帖子用户行为信息
+	var behavior *models.UserPostBehavior
+	behavior, err = mysql.CheckBehavior(userID, postID)
+	if err == gorm.ErrRecordNotFound {
+		// 没有找到记录, 创建记录
+		zap.L().Info("不存在该用户-帖子行为", zap.Int64("postID", postID), zap.Int64("userID", userID))
+		if err := mysql.CreateBehavior(userID, postID, mysql.BehaviorComment); err != nil {
+			zap.L().Error("mysql.CreateBehavior failed", zap.Error(err))
+			return 0, err
+		}
+		return 0, nil // 返回 nil 表示没有记录
+
+	} else if err != nil {
+		zap.L().Error("mysql.CheckBehavior failed", zap.Error(err))
+		return 0, err
+	}
+
+	// 行为存在，查看是否需要更新行为
+	if behavior.Comment == 0 {
+		if err := mysql.UpdateBehavior(userID, postID, mysql.BehaviorComment); err != nil {
+			zap.L().Error("mysql.UpdateBehavior failed", zap.Error(err))
+			return 0, err
+		}
+	}
+
 	return commentID, nil
 }
 

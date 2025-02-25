@@ -96,6 +96,15 @@ func Setup(mode string) *gin.Engine {
 		// 取消置顶评论路由，例如 POST /comment/pin/:comment_id
 		v1.DELETE("/comment/pin/:comment_id", controllers.UnpinCommentController)
 
+		// 评论热度省略了... 类比于帖子热度
+
+		// 上传图片
+		// 定义路由
+		v1.POST("/upload-image", controllers.UploadImageController)
+
+		// 推荐系统
+		v1.GET("/recommend", controllers.RecommendController)
+
 	}
 
 	r.GET("/swagger/*any", gs.WrapHandler(swaggerFiles.Handler))

@@ -2,9 +2,11 @@ package mysql
 
 import (
 	"bluebell/models"
+	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"log"
 	"strings"
 	"time"
 )
@@ -59,6 +61,33 @@ func GetPostsListByIds(ids []string) (postlist []*models.Post, err error) {
 
 	err = db.Select(&postlist, query, args...)
 	return
+}
+
+// GetPostsListByIds 根据给定的 ID 列表查询帖子数据，支持传入 int64 切片
+func GetPostsListByInt64Ids(ids []int64) (postlist []*models.Post, err error) {
+	// 定义 SQL 查询语句，使用 FIND_IN_SET 进行排序
+	sqlStr := `select post_id, title, content, author_id, community_id, create_time from post where post_id in (?) 
+				order by FIND_IN_SET(post_id, ?)`
+
+	// 使用 sqlx.In 将切片参数绑定到查询语句中
+	query, args, err := sqlx.In(sqlStr, ids, strings.Join(toStringSlice(ids), ","))
+	if err != nil {
+		return nil, err
+	}
+	// Rebind 查询语句，使其兼容不同数据库驱动的占位符样式（如 ? 或 $1, $2）
+	query = db.Rebind(query)
+	// 执行查询并将结果映射到 postlist
+	err = db.Select(&postlist, query, args...)
+	return
+}
+
+// 将 []int64 转换为 []string
+func toStringSlice(ids []int64) []string {
+	result := make([]string, len(ids))
+	for i, v := range ids {
+		result[i] = fmt.Sprintf("%d", v)
+	}
+	return result
 }
 
 // 根据给定的id列表查询对应社区的数据
@@ -154,7 +183,7 @@ func BatchInsertPostHotScores(postUpdateScores []redis.Z) error {
 	return nil
 }
 
-// 开始MySQL事务，并将更新的点赞数据存入mysql数据库
+// BatchInsertLikes 开始MySQL事务，并将更新的点赞数据存入mysql数据库
 func BatchInsertLikes(postUpdateScores []redis.Z) error {
 	// 开启事务
 	tx, err := db.Beginx()
@@ -198,7 +227,7 @@ func BatchInsertLikes(postUpdateScores []redis.Z) error {
 	return nil
 }
 
-// 开始MySQL事务，并将更新的点赞数据存入mysql数据库
+// BatchInsertDisLikes 开始MySQL事务，并将更新的点赞数据存入mysql数据库
 func BatchInsertDisLikes(postUpdateScores []redis.Z) error {
 	// 开启事务
 	tx, err := db.Beginx()
@@ -240,4 +269,25 @@ func BatchInsertDisLikes(postUpdateScores []redis.Z) error {
 		return err
 	}
 	return nil
+}
+
+// SaveImageToDB 插入图像信息
+func SaveImageToDB(image *models.ParamImage) error {
+	// 使用 GORM 的 Create 方法插入数据
+	if err := gormdb.Create(image).Error; err != nil {
+		log.Println("Failed to insert image:", err)
+		return err
+	}
+	return nil
+}
+
+// 查询数据库获得对应帖子的作者
+func GetPostAuthor(postID int64) (int64, error) {
+	var userID int64
+	sqlStr := `select author_id from post where post_id = ?`
+	err := db.Get(&userID, sqlStr, postID)
+	if err != nil {
+		return 0, err
+	}
+	return userID, nil
 }
